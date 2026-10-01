@@ -1,0 +1,71 @@
+name: Check shoe stock
+
+on:
+  schedule:
+    # Every 15 minutes, off the quarter-hour marks when GitHub's scheduler is busiest.
+    # GitHub skips many scheduled runs under load, so this lands at least hourly in practice.
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Send a test alert through every configured channel"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # commit state.json so the next run knows what was already reported
+  issues: write # open an issue (and @mention you) when the shoe is in stock
+  actions: write # keep this schedule switched on (see the last step)
+
+concurrency:
+  group: check-stock
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Check retailers
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ vars.NTFY_SERVER }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          GITHUB_ISSUE_ALERTS: ${{ vars.GITHUB_ISSUE_ALERTS }}
+        run: python -m shoe_tracker ${{ inputs.test_notification && '--test-notification' || '' }}
+
+      - name: Save state
+        run: |
+          if [ -n "$(git status --porcelain -- state.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state.json
+            git commit -m "Update stock tracker state"
+            git pull --rebase
+            git push
+          fi
+
+      # GitHub switches off schedules in public repos after 60 days without
+      # activity. Re-enabling the workflow through the API resets that clock.
+      - name: Keep the schedule alive
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/check-stock.yml/enable" --silent

@@ -1,0 +1,51 @@
+# What the tracker looks for and where. Edit this file on GitHub and commit;
+# the next scheduled run picks up the change.
+
+[shoe]
+label      = "Brooks Ghost Max 4, men's 12 Extra Wide (4E), Black/Black/Ebony"
+model      = "Ghost Max 4"
+style      = "110496"             # Brooks style number, men's Ghost Max 4
+color_code = "020"                # Brooks colour code for Black/Black/Ebony
+color_name = "Black/Black/Ebony"
+size       = "12"
+width      = "4E"
+# UPC of this exact shoe, worked out from Brooks' numbering (the 12 D and
+# 12 2E in this colour are ...6023 and ...6030). Only used as one more way
+# to recognise it in a shop's listing.
+upc        = "195394886047"
+
+[location]
+# Set your ZIP to get a separate alert for each Fleet Feet store within
+# radius_miles. Leave it empty to get one alert listing every store that has it.
+zip          = ""
+radius_miles = 50
+
+[brooks]
+enabled     = true
+product_url = "https://www.brooksrunning.com/en_us/mens/shoes/road-running-shoes/ghost-max-4/110496.html"
+
+[fleet_feet]
+enabled     = true
+product_url = "https://www.fleetfeet.com/products/mens-brooks-ghost-max-4"
+
+[shopify]
+# Independent running shops (most with physical stores) that sell the
+# Ghost Max 4 online. Each run searches their catalogue, so new colourway or
+# width pages are found automatically. Add any other Shopify shop the same way.
+enabled = true
+search  = "ghost max 4"
+stores  = [
+  { name = "Fit2Run (FL)",                  domain = "www.fit2run.com" },
+  { name = "Holabird Sports",               domain = "www.holabirdsports.com" },
+  { name = "Luke's Locker (TX)",            domain = "www.lukeslocker.com" },
+  { name = "Runners Plus",                  domain = "www.runnersplus.com" },
+  { name = "Lebo's",                        domain = "lebos.com" },
+  { name = "Pacers Running (DC/VA/MD)",     domain = "runpacers.com" },
+  { name = "Potomac River Running (VA/DC)", domain = "www.potomacriverrunning.com" },
+  { name = "Gazelle Sports (MI)",           domain = "gazellesports.com" },
+  { name = "Lamey Wellehan (ME)",           domain = "lwshoes.com" },
+]
+
+[alerts]
+# Warn if a retailer can't be checked for this long (site change, bot block).
+source_down_hours = 6
