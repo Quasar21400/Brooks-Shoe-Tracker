@@ -15,27 +15,33 @@ width      = "4E"
 upc        = "195394886047"
 
 [location]
-# Set your ZIP to get a separate alert for each Fleet Feet store within
-# radius_miles. Leave it empty to get one alert listing every store that has it.
-zip          = ""
-radius_miles = 50
+# Physical stores only count when they're within radius_miles of this ZIP.
+# Online shops ship anywhere, so they're always checked.
+zip          = "33027"
+radius_miles = 40
 
 [brooks]
 enabled     = true
 product_url = "https://www.brooksrunning.com/en_us/mens/shoes/road-running-shoes/ghost-max-4/110496.html"
+
+[zappos]
+# Zappos lists Black/Black/Ebony in "4E - X-Wide" (sold out when this was set up).
+enabled     = true
+product_url = "https://www.zappos.com/p/brooks-ghost-max-4/product/10048552"
 
 [fleet_feet]
 enabled     = true
 product_url = "https://www.fleetfeet.com/products/mens-brooks-ghost-max-4"
 
 [shopify]
-# Independent running shops (most with physical stores) that sell the
-# Ghost Max 4 online. Each run searches their catalogue, so new colourway or
-# width pages are found automatically. Add any other Shopify shop the same way.
+# Running shops that sell the Ghost Max 4 online and ship anywhere. Each run
+# searches their catalogue, so new colourway or width pages are found
+# automatically. Fit2Run also reports stock at its stores near the ZIP above
+# (Aventura and Coconut Creek). Add any other Shopify shop the same way.
 enabled = true
 search  = "ghost max 4"
 stores  = [
-  { name = "Fit2Run (FL)",                  domain = "www.fit2run.com" },
+  { name = "Fit2Run (FL)",                  domain = "www.fit2run.com", pickup = true },
   { name = "Holabird Sports",               domain = "www.holabirdsports.com" },
   { name = "Luke's Locker (TX)",            domain = "www.lukeslocker.com" },
   { name = "Runners Plus",                  domain = "www.runnersplus.com" },

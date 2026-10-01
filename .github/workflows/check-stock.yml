@@ -2,8 +2,9 @@ name: Check shoe stock
 
 on:
   schedule:
-    # Every 15 minutes, off the quarter-hour marks when GitHub's scheduler is busiest.
-    # GitHub skips many scheduled runs under load, so this lands at least hourly in practice.
+    # The stores are checked once an hour. GitHub skips many scheduled runs
+    # under load, so it is asked four times an hour; the `hourly` job below
+    # lets only the first run that lands in each hour do the check.
     - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
     inputs:
@@ -22,7 +23,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  hourly:
+    runs-on: ubuntu-latest
+    outputs:
+      hour: ${{ steps.hour.outputs.hour }}
+      checked: ${{ steps.marker.outputs.cache-hit }}
+    steps:
+      - id: hour
+        run: echo "hour=$(date -u +%Y%m%d%H)" >> "$GITHUB_OUTPUT"
+      - id: marker
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: .checked-this-hour
+          key: checked-${{ steps.hour.outputs.hour }}
+          lookup-only: true
+
   check:
+    needs: hourly
+    if: needs.hourly.outputs.checked != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -49,6 +68,15 @@ jobs:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           GITHUB_ISSUE_ALERTS: ${{ vars.GITHUB_ISSUE_ALERTS }}
         run: python -m shoe_tracker ${{ inputs.test_notification && '--test-notification' || '' }}
+
+      - name: Mark this hour as checked
+        run: mkdir -p .checked-this-hour && date -u > .checked-this-hour/at
+
+      - uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: .checked-this-hour
+          key: checked-${{ needs.hourly.outputs.hour }}
 
       - name: Save state
         run: |

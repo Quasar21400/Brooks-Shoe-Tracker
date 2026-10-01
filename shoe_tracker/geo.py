@@ -22,6 +22,21 @@ def distance_miles(home: Home, lat: float, lng: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
+_ZIP_CACHE: dict[str, tuple[float, float] | None] = {}
+
+
+def zip_location(zip_code: str, http: Http) -> tuple[float, float] | None:
+    """Latitude/longitude of a US ZIP code, or None if the lookup fails."""
+    if zip_code not in _ZIP_CACHE:
+        try:
+            place = http.get_json(f"https://api.zippopotam.us/us/{zip_code}")["places"][0]
+            _ZIP_CACHE[zip_code] = (float(place["latitude"]), float(place["longitude"]))
+        except Exception as exc:
+            print(f"  [location] couldn't look up ZIP {zip_code}: {exc}")
+            _ZIP_CACHE[zip_code] = None
+    return _ZIP_CACHE[zip_code]
+
+
 def resolve_home(cfg: dict, http: Http) -> Home | None:
     """Home location from config: explicit lat/lng, or a US ZIP code."""
     radius = float(cfg.get("radius_miles") or 0)
@@ -30,9 +45,8 @@ def resolve_home(cfg: dict, http: Http) -> Home | None:
     zip_code = str(cfg.get("zip") or "").strip()
     if not zip_code:
         return None
-    try:
-        place = http.get_json(f"https://api.zippopotam.us/us/{zip_code}")["places"][0]
-    except Exception as exc:
-        print(f"  [location] couldn't look up ZIP {zip_code}: {exc}; showing stores everywhere")
+    point = zip_location(zip_code, http)
+    if point is None:
+        print("  [location] showing stores everywhere")
         return None
-    return Home(float(place["latitude"]), float(place["longitude"]), radius, zip_code)
+    return Home(point[0], point[1], radius, zip_code)

@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 from shoe_tracker import geo
-from shoe_tracker.sources import brooks, fleetfeet, shopify
+from shoe_tracker.sources import brooks, fleetfeet, shopify, zappos
 
 from .fakes import (
     FLEET_LOCATIONS,
@@ -12,8 +12,10 @@ from .fakes import (
     brooks_variation,
     fleet_entry,
     fleet_page,
+    pickup_section,
     shopify_product,
     shopify_suggest,
+    zappos_page,
 )
 
 BROOKS_CFG = {"product_url": "https://www.brooksrunning.com/en_us/mens/shoes/road-running-shoes/ghost-max-4/110496.html"}
@@ -86,10 +88,11 @@ class FleetFeetTests(unittest.TestCase):
         home = geo.Home(35.91, -79.05, 50, "27510")  # Chapel Hill: Durham is ~10 mi, NYC ~430 mi
         result = self.check(self.ENTRIES_NO_4E + [fleet_entry("110496-4E-020", "4E", "X", ["200", "100", "555"])], home)
         keys = [o.key for o in result.offers]
-        self.assertEqual(keys, ["fleetfeet:100", "fleetfeet:elsewhere"])
+        self.assertEqual(keys, ["fleetfeet:100"])  # stores outside the radius never alert
         self.assertIn("Durham, NC", result.offers[0].where)
         self.assertIn("919-555-0100", result.offers[0].note)
-        self.assertIn("2 other Fleet Feet stores", result.offers[1].where)
+        self.assertIn("2 farther away", result.status)
+        self.assertIn("Manhattan", result.status)
 
     def test_missing_product_data_raises(self):
         with self.assertRaises(RuntimeError):
@@ -141,6 +144,52 @@ class ShopifyTests(unittest.TestCase):
             result = shopify.check(TARGET, self.STORE, "ghost max 4", http)
         self.assertEqual([o.key for o in result.offers], ["shopify:shop.example:777"])
         self.assertIn("$164.95", result.offers[0].note)
+
+
+class ZapposTests(unittest.TestCase):
+    CFG = {"product_url": "https://www.zappos.com/p/brooks-ghost-max-4/product/10048552"}
+
+    def test_listed_but_out_of_stock(self):
+        result = zappos.check(TARGET, self.CFG, FakeHttp({"zappos.com": zappos_page(0)}))
+        self.assertEqual(result.offers, [])
+        self.assertEqual(result.status, "listed but out of stock")
+
+    def test_in_stock(self):
+        result = zappos.check(TARGET, self.CFG, FakeHttp({"zappos.com": zappos_page(4)}))
+        self.assertEqual(len(result.offers), 1)
+        self.assertEqual(result.offers[0].url, "https://www.zappos.com/product/10048552/color/683936")
+        self.assertIn("$164.95 (4 left)", result.offers[0].note)
+
+    def test_page_without_stock_data_raises(self):
+        with self.assertRaises(RuntimeError):
+            zappos.check(TARGET, self.CFG, FakeHttp({"zappos.com": "<html>blocked</html>"}))
+
+
+class PickupTests(unittest.TestCase):
+    SECTION = pickup_section([
+        ("Fit2Run Tampa International", True, ["2223 N West Shr Blvd", "Unit B230", "Tampa FL 33607"]),
+        ("Fit2Run Aventura", True, ["19505 Biscayne Blvd", "Ste 3260", "Aventura FL 33180"]),
+        ("Fit2Run Coconut Creek", False, ["4443 Lyons Rd", "Coconut Creek FL 33073"]),
+    ])
+
+    def test_parse(self):
+        stores = shopify.parse_pickup(self.SECTION)
+        self.assertEqual([s["name"] for s in stores], ["Fit2Run Tampa International", "Fit2Run Aventura", "Fit2Run Coconut Creek"])
+        self.assertEqual([s["available"] for s in stores], [True, True, False])
+        self.assertEqual([s["zip"] for s in stores], ["33607", "33180", "33073"])  # not the 5-digit street number
+
+    def test_only_nearby_stores_with_stock_alert(self):
+        geo._ZIP_CACHE.clear()
+        http = FakeHttp({
+            "pickup-availability": self.SECTION,
+            "zippopotam.us/us/33607": {"places": [{"latitude": "27.96", "longitude": "-82.52"}]},
+            "zippopotam.us/us/33180": {"places": [{"latitude": "25.96", "longitude": "-80.14"}]},
+        })
+        home = geo.Home(25.9974, -80.3248, 40, "33027")
+        offers = shopify.nearby_pickup("www.fit2run.com", "Fit2Run (FL)", 77, "https://x", http, home)
+        self.assertEqual([o.retailer for o in offers], ["Fit2Run (FL): Fit2Run Aventura"])
+        self.assertEqual(offers[0].where, "in store, 12 mi")
+        self.assertFalse(any("33073" in c for c in http.calls))  # sold-out stores aren't looked up
 
 
 if __name__ == "__main__":

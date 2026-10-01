@@ -13,7 +13,7 @@ from . import geo
 from .http import Http
 from .models import Offer, SourceResult, Target
 from .notify import Notifier
-from .sources import brooks, fleetfeet, shopify
+from .sources import brooks, fleetfeet, shopify, zappos
 
 STOCK_ISSUE = "stock"
 
@@ -53,16 +53,21 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_sources(target: Target, cfg: dict, http: Http) -> list[SourceResult]:
+    home = geo.resolve_home(cfg.get("location", {}), http)
+    if home:
+        print(f"Stores count as nearby within {home.radius_miles:g} miles of {home.label}")
     jobs = []
     if cfg.get("brooks", {}).get("enabled", True):
         jobs.append((brooks.NAME, lambda: brooks.check(target, cfg["brooks"], http)))
+    if cfg.get("zappos", {}).get("enabled", True) and cfg.get("zappos", {}).get("product_url"):
+        jobs.append((zappos.NAME, lambda: zappos.check(target, cfg["zappos"], http)))
     if cfg.get("fleet_feet", {}).get("enabled", True):
-        home = geo.resolve_home(cfg.get("location", {}), http)
         jobs.append((fleetfeet.NAME, lambda: fleetfeet.check(target, cfg["fleet_feet"], http, home)))
     shop_cfg = cfg.get("shopify", {})
     if shop_cfg.get("enabled", True):
+        search = shop_cfg.get("search", target.model)
         for store in shop_cfg.get("stores", []):
-            jobs.append((store["name"], lambda s=store: shopify.check(target, s, shop_cfg.get("search", target.model), http)))
+            jobs.append((store["name"], lambda s=store: shopify.check(target, s, search, http, home)))
 
     results = []
     for name, job in jobs:

@@ -59,21 +59,21 @@ def check(target: Target, cfg: dict, http: Http, home: geo.Home | None = None) -
             Offer(f"fleetfeet:{rics}", f"Fleet Feet {_store_name(rics, loc)}", _where(loc, miles), page_url, _phone(loc))
         )
     others = [s for s in stores if s not in nearby]
-    if others:
-        listing = "; ".join(_short(r, l, m) for r, l, m in others[:LIST_LIMIT])
-        if len(others) > LIST_LIMIT:
-            listing += f"; +{len(others) - LIST_LIMIT} more"
-        label = "other Fleet Feet stores" if nearby else "Fleet Feet stores"
-        result.offers.append(
-            Offer(
-                "fleetfeet:elsewhere" if home and radius else "fleetfeet:any",
-                NAME,
-                f"{len(others)} {label}",
-                page_url,
-                f"call a store or order online. {listing}",
-            )
-        )
-    result.status = f"IN STOCK at {len(stores)} store(s)" + (f", {len(nearby)} within {radius:g} mi" if nearby else "")
+    listing = "; ".join(_short(r, l, m) for r, l, m in others[:LIST_LIMIT])
+    if len(others) > LIST_LIMIT:
+        listing += f"; +{len(others) - LIST_LIMIT} more"
+    if others and not (home and radius):
+        # No home location set: one alert listing every store that has it.
+        result.offers.append(Offer("fleetfeet:any", NAME, f"{len(others)} Fleet Feet stores", page_url, listing))
+    if home and radius:
+        if nearby:
+            result.status = f"IN STOCK at {len(nearby)} store(s) within {radius:g} mi"
+        else:
+            result.status = f"not at any store within {radius:g} mi"
+        if others:
+            result.status += f"; {len(others)} farther away, not alerted: {listing}"
+    else:
+        result.status = f"IN STOCK at {len(stores)} store(s)"
     return result
 
 

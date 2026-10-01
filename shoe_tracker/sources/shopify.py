@@ -8,13 +8,20 @@ so a new colourway or width page added by the shop is picked up.
 `.js` lists at most 250 variants. Bigger products (Fit2Run puts every colour
 and width on one page) are read through the tokenless Storefront GraphQL API,
 which pages through all of them.
+
+Shops with in-store pickup (`pickup = true` in config.toml, e.g. Fit2Run)
+also publish per-store stock for a variant, which covers their physical
+stores near home.
 """
 
 from __future__ import annotations
 
+import html as htmlmod
+import re
 import time
 from urllib.parse import quote
 
+from .. import geo
 from ..http import Http
 from ..matching import Matcher
 from ..models import Offer, SourceResult, Target
@@ -32,7 +39,7 @@ query($handle: String!, $after: String) {
 }"""
 
 
-def check(target: Target, store: dict, search: str, http: Http) -> SourceResult:
+def check(target: Target, store: dict, search: str, http: Http, home: geo.Home | None = None) -> SourceResult:
     name, domain = store["name"], store["domain"]
     result = SourceResult(name)
     matcher = Matcher(target)
@@ -61,15 +68,17 @@ def check(target: Target, store: dict, search: str, http: Http) -> SourceResult:
         listed += [(product, v) for v in product.get("variants") or [] if matcher.shopify_variant(product, v)]
 
     for product, variant in listed:
+        url = f"https://{domain}/products/{product['handle']}?variant={variant['id']}"
         if variant.get("available"):
-            url = f"https://{domain}/products/{product['handle']}?variant={variant['id']}"
             price = f"${int(variant.get('price') or 0) / 100:.2f}" if variant.get("price") else ""
             result.offers.append(
                 Offer(f"shopify:{domain}:{variant['id']}", name, "online", url, f"{price} {variant.get('title', '')}".strip())
             )
+        if store.get("pickup"):
+            result.offers += nearby_pickup(domain, name, variant["id"], url, http, home)
 
     if result.offers:
-        result.status = f"IN STOCK ({len(result.offers)} listing(s))"
+        result.status = "IN STOCK: " + "; ".join(o.where for o in result.offers)
     elif listed:
         result.status = "listed but sold out"
     else:
@@ -105,3 +114,62 @@ def all_variants(domain: str, handle: str, http: Http) -> dict:
             break
         after = page["pageInfo"]["endCursor"]
     return {"options": [{"name": n} for n in names], "variants": variants}
+
+
+def nearby_pickup(domain: str, name: str, variant_id, url: str, http: Http, home: geo.Home | None) -> list[Offer]:
+    """In-store stock at the shop's pickup locations within the home radius."""
+    if not home or not home.radius_miles:
+        return []
+    try:
+        page = http.get(f"https://{domain}/variants/{variant_id}/?section_id=pickup-availability").text
+    except Exception as exc:
+        print(f"  [{domain}] store stock unavailable: {exc}")
+        return []
+    offers = []
+    for store in parse_pickup(page):
+        point = geo.zip_location(store["zip"], http) if store["available"] and store["zip"] else None
+        if point is None:
+            continue
+        miles = geo.distance_miles(home, *point)
+        if miles <= home.radius_miles:
+            offers.append(
+                Offer(
+                    f"shopify:{domain}:{variant_id}:{store['name']}",
+                    f"{name}: {store['name']}",
+                    f"in store, {miles:.0f} mi",
+                    url,
+                    store["address"],
+                )
+            )
+    return offers
+
+
+def parse_pickup(page: str) -> list[dict]:
+    """Stores from Shopify's pickup-availability section.
+
+    The list reads: store name, "Pickup available..." or "Pickup currently
+    unavailable", address lines, "United States". The summary at the top
+    ("Pickup available at <store>") is skipped.
+    """
+    tokens = [htmlmod.unescape(t).strip() for t in re.split(r"<[^>]+>", page)]
+    tokens = [t for t in tokens if t]
+    stores = []
+    for i, tok in enumerate(tokens):
+        m = re.match(r"pickup (available|currently unavailable)", tok, re.I)
+        if not m or i == 0 or tok.endswith(" at"):
+            continue
+        address = []
+        for line in tokens[i + 1 : i + 8]:
+            if line == "United States" or line.lower().startswith("pickup"):
+                break
+            address.append(line)
+        zips = re.findall(r"\b(\d{5})\b", " ".join(address))
+        stores.append(
+            {
+                "name": tokens[i - 1],
+                "available": m.group(1).lower() == "available",
+                "address": ", ".join(address),
+                "zip": zips[-1] if zips else "",
+            }
+        )
+    return stores

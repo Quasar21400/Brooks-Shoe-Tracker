@@ -5,13 +5,45 @@ Watches for one pair of shoes and pings your phone the moment they can be bought
 > **Brooks Ghost Max 4, men's size 12, Extra Wide (4E), Black/Black/Ebony**
 > (Brooks style 110496, colour 020)
 
-A GitHub Actions job runs every 15 minutes and checks:
+A GitHub Actions job checks once an hour. Physical stores only count when they're within **40 miles of ZIP 33027**. Online shops ship anywhere, so they're always checked.
 
-| Where | How |
+## Stores near you (within 40 miles of 33027)
+
+| Store | Distance | How it's checked |
+|---|---|---|
+| Fleet Feet North Miami | about 11 mi | Fleet Feet publishes each store's stock |
+| Fleet Feet Coconut Grove | about 18 mi | same |
+| Fleet Feet Miami | about 25 mi | same |
+| Fleet Feet Delray Beach | about 36 mi | same |
+| Fit2Run Aventura | about 12 mi | Fit2Run's "pick up in store" stock |
+| Fit2Run Coconut Creek | about 23 mi | same |
+
+Fleet Feet stores farther than 40 miles never trigger an alert.
+
+## Online, shipped to you
+
+| Shop | Notes |
 |---|---|
-| **brooksrunning.com** | Reads the product page and the site's own variant data for 110496 / 020 / 4E / 12.0. |
-| **Fleet Feet stores** (250+ US locations) | Fleet Feet publishes per-store stock on its product page. You get the store names, distances and phone numbers. |
-| **Independent running shops** on Shopify | Fit2Run, Holabird, Luke's Locker, Runners Plus, Lebo's, Pacers, Potomac River Running, Gazelle Sports, Lamey Wellehan. Each run searches their catalogue, so a newly added 4E page gets picked up. |
+| **brooksrunning.com** | Brooks' own site |
+| **Zappos** | Lists Black/Black/Ebony in "4E - X-Wide", sold out in every size as of Oct 1 |
+| **Fit2Run** online | Florida chain; also covers the two stores above |
+| Holabird Sports, Luke's Locker, Runners Plus, Lebo's, Pacers, Potomac River Running, Gazelle Sports, Lamey Wellehan | Running shops that sell online. Each check searches their catalogue, so a newly added 4E page gets picked up |
+
+## Places that can't be checked automatically
+
+| Place | Near you? | Why |
+|---|---|---|
+| Dick's Sporting Goods | yes (Pembroke Pines, about 3 mi, and others) | A bot wall (Akamai) blocks every automated visit |
+| Runner's Depot, Davie | about 8 mi | Its online shop stops at the Ghost Max 3. Call (954) 474-4074 |
+| Runner's Edge, Boca Raton | about 30 mi | Lists the Ghost Max 4, but sizes and stock load from a private data service after the page opens. Call (561) 361-1950 |
+| Running Wild, Fort Lauderdale | about 16 mi | No online store. Call (954) 565-9400 |
+| Sole-Lutions Footwear, Pembroke Pines | about 2 mi | No online store. Call (954) 447-4400 |
+| Footworks, South Miami | about 21 mi | Its online shop doesn't sell shoes |
+| iRun, Miami | about 15 mi | No online store |
+| Brooks' "Find a store" (Locally.com) | n/a | Store stock pages sit behind a Cloudflare bot wall |
+| Famous Footwear, REI, Amazon, Nordstrom, JCPenney | n/a | Bot walls |
+
+Checked and ruled out: **Academy Sports** sells the Ghost Max 4 only in regular and wide, no 4E. **Foot Locker, Champs and Lady Foot Locker** don't sell the Ghost Max 4. **Running Warehouse** sells it, but not in Black/Black/Ebony.
 
 When the shoe shows up anywhere, you get one alert listing where. You won't get repeats on every check. A new alert comes only when another place gets it. When everything sells out again you get a quiet "sold out again" note.
 
@@ -39,17 +71,17 @@ Add these repository secrets. For Gmail, `SMTP_PASSWORD` must be an [app passwor
 
 To turn the GitHub-issue alerts off, add a repository **variable** (not a secret) `GITHUB_ISSUE_ALERTS` = `false`.
 
-## Only care about nearby stores?
+## Changing your location
 
-Edit `config.toml` and set your ZIP:
+Edit `[location]` in `config.toml`:
 
 ```toml
 [location]
-zip          = "27510"
-radius_miles = 50
+zip          = "33027"
+radius_miles = 40
 ```
 
-Every Fleet Feet store within the radius then gets its own alert with its phone number. Stock anywhere else still triggers one summary alert, since Fleet Feet stores can ship.
+Every nearby store with stock gets its own alert with its distance. Leave `zip` empty to hear about Fleet Feet stock anywhere in the country instead.
 
 ## What it found on the first run (Sept 28, 2026)
 
@@ -62,10 +94,9 @@ The tracker's own summary for each run is under **Actions → Check shoe stock �
 ## Good to know
 
 - **Brooks' own restock email.** On the Brooks product page, pick Black/Black/Ebony, Extra Wide (4E), size 12. If Brooks offers a "Notify me" button there, sign up for that too.
-- **Not covered:** Zappos, Running Warehouse, Dick's, Amazon and REI. They either block automated checks or render stock with scripts that change often.
 - **Something breaks?** Retailers redesign sites. If one can't be checked for 6 hours straight, you get a "tracker can't check X" alert, so silence always means "not in stock", never "broken".
-- **How often it really checks.** GitHub skips scheduled runs when its servers are busy. With an hourly schedule it ran only every 3 to 8 hours, so the schedule asks for every 15 minutes to land at least hourly. The schedule is the `cron` line in `.github/workflows/check-stock.yml`.
-- **Keep this repo public.** Public repos get unlimited free GitHub Actions time. If it goes back to private, runs count against the free 2,000 minutes a month, and checking every 15 minutes could use them up. Switch the `cron` line to `"11 * * * *"` (hourly) in that case.
+- **Once an hour, without gaps.** GitHub skips scheduled runs when its servers are busy. A plain hourly schedule only ran every 3 to 8 hours. So GitHub is asked four times an hour, and only the first run that lands in each hour checks the stores. The others stop after a few seconds.
+- **Keep this repo public.** Public repos get unlimited free GitHub Actions time. A private repo gets 2,000 free minutes a month, and the four-times-an-hour schedule could use them up.
 - **The schedule stays switched on.** GitHub turns off schedules in public repos after 60 days with no activity. Each run re-enables the workflow to prevent that. If checks ever stop, open **Actions → Check shoe stock** and click **Enable workflow**.
 - **Scheduled runs only happen on the default branch** (`main`). Keep the tracker's files there.
 

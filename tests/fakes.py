@@ -140,3 +140,44 @@ def shopify_product(handle: str, title: str, option_names: list[str], variants: 
             "price": 16495,
         })
     return {"handle": handle, "title": title, "options": [{"name": n} for n in option_names], "variants": out}
+
+
+# -- Zappos --------------------------------------------------------------------
+
+def zappos_page(black_4e_12_on_hand: int) -> str:
+    def item(width, size, on_hand):
+        out = on_hand == 0
+        return {
+            "width": width, "size": size, "isOutOfStock": out, "onHand": str(on_hand),
+            "stockId": f"out_of_stock_{size}" if out else f"608{size}", "price": "$$164.95", "airplaneSizing": "$15:ref",
+        }
+    variants = {
+        "683936": {
+            "colorName": "Black/Black/Ebony", "productUrl": "/product/10048552/color/683936",
+            "allStockItems": [item("D - Medium", 12, 55), item("E - Wide", 12, 3),
+                              item("4E - X-Wide", 11.5, 2), item("4E - X-Wide", 12, black_4e_12_on_hand)],
+        },
+        "1131642": {"colorName": "Grey/Grey/Ebony", "productUrl": "/product/10048552/color/1131642",
+                    "allStockItems": [item("4E - X-Wide", 12, 1)]},
+    }
+    payload = '15:["$","$L3e",null,{"allColorVariants":' + json.dumps(variants) + ',"other":1}]'
+    half = len(payload) // 2  # the data is split across two script chunks
+    chunks = [json.dumps([1, payload[:half]]), json.dumps([1, payload[half:]])]
+    return "<html>" + "".join(f"<script>self.__next_f.push({c})</script>" for c in chunks) + "</html>"
+
+
+# -- Shopify store pickup -------------------------------------------------------
+
+def pickup_section(stores: list[tuple[str, bool, list[str]]]) -> str:
+    """Shaped like Fit2Run's pickup-availability section."""
+    first = stores[0]
+    head = (
+        f'<div><p>Pickup {"available" if first[1] else "currently unavailable"} at</p>'
+        f"<p><strong>{first[0]}</strong></p><p>Usually ready in 24 hours</p></div>"
+    )
+    rows = ""
+    for name, available, address in stores:
+        status = "Pickup available, usually ready in 24 hours" if available else "Pickup currently unavailable"
+        lines = "".join(f"{line}<br>" for line in address)
+        rows += f"<li><h3>{name}</h3><p><span>{status}</span></p><address>{lines}United States<br>+15550100</address></li>"
+    return head + f"<ul>{rows}</ul>"
