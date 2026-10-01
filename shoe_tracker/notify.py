@@ -1,6 +1,7 @@
 """Notification channels, all configured through environment variables.
 
-  ntfy (phone push):  NTFY_TOPIC, optional NTFY_SERVER, NTFY_TOKEN
+  ntfy (phone push):  NTFY_TOPIC (or `ntfy_topic` in config.toml),
+                      optional NTFY_SERVER, NTFY_TOKEN
   email (SMTP):       SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD,
                       EMAIL_TO, optional EMAIL_FROM
   GitHub issue:       GITHUB_TOKEN + GITHUB_REPOSITORY (set automatically in
@@ -19,10 +20,11 @@ from email.message import EmailMessage
 
 
 class Notifier:
-    def __init__(self, env: dict | None = None, dry_run: bool = False):
+    def __init__(self, env: dict | None = None, dry_run: bool = False, ntfy_topic: str = ""):
         env = dict(os.environ if env is None else env)
         self.dry_run = dry_run
-        self.ntfy_topic = env.get("NTFY_TOPIC", "").strip()
+        # A repository secret wins over the topic written in config.toml.
+        self.ntfy_topic = env.get("NTFY_TOPIC", "").strip() or ntfy_topic.strip()
         self.ntfy_server = (env.get("NTFY_SERVER") or "https://ntfy.sh").rstrip("/")
         self.ntfy_token = env.get("NTFY_TOKEN", "").strip()
         self.smtp = {k: env.get(k, "").strip() for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "EMAIL_TO", "EMAIL_FROM")}

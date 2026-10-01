@@ -15,14 +15,15 @@ A GitHub Actions job runs every 15 minutes and checks:
 
 When the shoe shows up anywhere, you get one alert listing where. You won't get repeats on every check. A new alert comes only when another place gets it. When everything sells out again you get a quiet "sold out again" note.
 
-## Set up alerts on your phone (2 minutes)
+## Phone alerts
 
-The tracker already runs without setup. Out of the box it opens a GitHub issue that @mentions you when the shoe is in stock, so GitHub emails you. For an instant push notification, add ntfy:
+Alerts go to the **ntfy** app on your phone ([iPhone and Android links](https://docs.ntfy.sh/subscribe/phone/)), subscribed to the topic `GhostBrooks`. The topic is set in `config.toml` under `[alerts]`.
 
-1. Install the **ntfy** app ([iPhone and Android links](https://docs.ntfy.sh/subscribe/phone/)). It's free and needs no account.
-2. In the app, tap **+** and subscribe to a topic name nobody could guess, e.g. `ghostmax-4e-k29xq7`. Anyone who knows the name can read it, so make it random.
-3. In this repo on GitHub: **Settings → Secrets and variables → Actions → New repository secret**. Name `NTFY_TOPIC`, value is your topic name.
-4. Test it: **Actions → Check shoe stock → Run workflow**, tick **Send a test alert**, then **Run workflow**. Your phone should buzz within a minute.
+Every alert also opens a GitHub issue that @mentions you, so GitHub notifies you as well.
+
+**This repo is public, so anyone can read the topic name.** Someone who finds it could see the alerts or send junk notifications to your phone. To hide it, subscribe the app to a random name instead (e.g. `ghostmax-4e-k29xq7`), then open [this repo's "New secret" page](https://github.com/Quasar21400/Brooks-Shoe-Tracker/settings/secrets/actions/new) in a browser. Enter `NTFY_TOPIC` as the name and your new topic as the value. The secret overrides `config.toml`, and GitHub never shows it publicly.
+
+To send a test alert: **Actions → Check shoe stock → Run workflow**, tick **Send a test alert**, then **Run workflow**. Your phone should buzz within a minute.
 
 ### Email instead (optional)
 

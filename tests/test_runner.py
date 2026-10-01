@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from shoe_tracker.models import Offer, SourceResult
+from shoe_tracker.notify import Notifier
 from shoe_tracker.runner import handle_health, handle_stock
 
 from .fakes import TARGET
@@ -99,6 +100,14 @@ class HealthTests(unittest.TestCase):
         handle_health([result("Shop")], state, n, t0 + timedelta(hours=1), 6)
         self.assertEqual(n.sent, [])
         self.assertEqual(state["health"], {})
+
+
+class NtfyTopicTests(unittest.TestCase):
+    def test_config_topic_is_used(self):
+        self.assertEqual(Notifier(env={}, ntfy_topic="GhostBrooks").ntfy_topic, "GhostBrooks")
+
+    def test_secret_overrides_config(self):
+        self.assertEqual(Notifier(env={"NTFY_TOPIC": "hidden-topic"}, ntfy_topic="GhostBrooks").ntfy_topic, "hidden-topic")
 
 
 if __name__ == "__main__":

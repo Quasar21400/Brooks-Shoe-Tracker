@@ -47,5 +47,8 @@ stores  = [
 ]
 
 [alerts]
+# ntfy topic your phone is subscribed to. This repo is public, so anyone can
+# read this name. An NTFY_TOPIC repository secret, if set, is used instead.
+ntfy_topic = "GhostBrooks"
 # Warn if a retailer can't be checked for this long (site change, bot block).
 source_down_hours = 6

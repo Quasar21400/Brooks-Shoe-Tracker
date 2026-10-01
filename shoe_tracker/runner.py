@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = tomllib.loads(Path(args.config).read_text())
     target = Target(**cfg["shoe"])
-    notifier = Notifier(dry_run=args.dry_run)
+    notifier = Notifier(dry_run=args.dry_run, ntfy_topic=str(cfg.get("alerts", {}).get("ntfy_topic", "")))
     state_path = Path(args.state)
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     before = json.dumps(state, sort_keys=True)
