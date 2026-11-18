@@ -1,11 +1,13 @@
 {
   "health": {
     "Lamey Wellehan (ME)": {
-      "alerted": false,
+      "alerted": true,
       "failing_since": "2026-11-18T17:37+00:00",
       "first_error": "HttpError: HTTP 404 from https://lwshoes.com/search/suggest.json?q=ghost%20max%204&resources[type]=product&resources[limit]=10: {\"errors\":\"Not Found\"}"
     }
   },
-  "issues": {},
+  "issues": {
+    "health:Lamey Wellehan (ME)": 2
+  },
   "offers": {}
 }
